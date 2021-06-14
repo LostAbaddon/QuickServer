@@ -122,3 +122,6 @@ dist
 .pnp.*
 
 package-lock.json
+test
+test.js
+test.json
