@@ -6,6 +6,7 @@ const EventEmitter = require('events');
 const KOA = require("koa");
 const SocketIO = require("socket.io");
 const DefaultConfig = {
+	useCache: true,
 	port: 8000,
 	socket: 0,
 	site: {},
@@ -132,7 +133,7 @@ const init = () => {
 		filemime = Mime.types[filetype] || 'text/plain';
 		var content, needCache = false;
 		if (['html', 'js', 'json', 'css', 'txt', 'xml'].includes(filetype)) {
-			needCache = true;
+			needCache = !!config.useCache;
 			content = resourceCache.get(filepath);
 		}
 		if (!content) {
