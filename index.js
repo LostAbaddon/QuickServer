@@ -6,10 +6,19 @@ const EventEmitter = require('events');
 const KOA = require("koa");
 const SocketIO = require("socket.io");
 const DefaultConfig = {
-	useCache: true,
+	useCache: false,
+	expire: 10 * 60 * 1000,
 	port: 8000,
 	socket: 0,
 	site: {},
+	config: {
+		socket: {
+			cors: {
+				origin: "*",
+				methods: ["GET", "POST"]
+			}
+		}
+	}
 };
 
 const LifeCycle = new EventEmitter();
@@ -73,7 +82,7 @@ const getIPAddress = () => {
 		}
 	}
 };
-const init = () => {
+const init = (cfg) => {
 	// 读取配置
 	var filepath = process.argv[2] || 'config.json';
 	filepath = preparePath(filepath);
@@ -86,6 +95,12 @@ const init = () => {
 		config = {};
 	}
 	config = copyConfig(config, DefaultConfig);
+	if (!!cfg) {
+		if (typeof cfg === 'string') {
+			cfg = {site: {'/': cfg}};
+		}
+		config = copyConfig(cfg, config);
+	}
 
 	// 调整配置
 	var pathMap = [];
@@ -134,21 +149,33 @@ const init = () => {
 		var content, needCache = false;
 		if (['html', 'js', 'json', 'css', 'txt', 'xml'].includes(filetype)) {
 			needCache = !!config.useCache;
-			content = resourceCache.get(filepath);
+		}
+		if (needCache) {
+			let cache = resourceCache.get(filepath);
+			if (!!cache) {
+				let timestamp = cache.timestamp;
+				if (config.expire >= 0 && Date.now() - timestamp > config.expire) {
+					resourceCache.delete(filepath);
+				}
+				else {
+					content = cache.content;
+				}
+			}
 		}
 		if (!content) {
 			try {
 				content = await FS.readFile(filepath);
 			}
 			catch (err) {
+				needCache = false;
 				console.error(url);
 				console.error(err);
 				content = '';
 			}
-		}
-		if (needCache) {
-			content = content.toString();
-			resourceCache.set(filepath, content);
+			if (needCache && !!content) {
+				content = content.toString();
+				resourceCache.set(filepath, {content, timestamp: Date.now()});
+			}
 		}
 		ctx.body = content;
 		ctx.type = filemime;
@@ -174,6 +201,7 @@ const init = () => {
 	console.log('Server Ready: ' + getIPAddress());
 };
 
-setImmediate(init);
-
-module.exports = LifeCycle;
+module.exports = {
+	LifeCycle,
+	start: init
+};
