@@ -10,6 +10,7 @@ const DefaultConfig = {
 	expire: 10 * 60 * 1000,
 	port: 8000,
 	socket: 0,
+	spa: false,
 	site: {},
 	config: {
 		socket: {
@@ -167,10 +168,25 @@ const init = (cfg) => {
 				content = await FS.readFile(filepath);
 			}
 			catch (err) {
-				needCache = false;
-				console.error(url);
-				console.error(err);
-				content = '';
+				if (cfg.spa && filepath.indexOf('index.html') >= 0) {
+					let redir = Path.join(folder, 'index.html');
+					console.log('  [REDIR]: ' + redir);
+					try {
+						content = await FS.readFile(redir);
+					}
+					catch (e) {
+						needCache = false;
+						console.error(url);
+						console.error(e);
+						content = '';
+					}
+				}
+				else {
+					needCache = false;
+					console.error(url);
+					console.error(err);
+					content = '';
+				}
 			}
 			if (needCache && !!content) {
 				content = content.toString();
